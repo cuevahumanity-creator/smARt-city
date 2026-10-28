@@ -1,0 +1,69 @@
+// Small synthesised sound design (no audio files). Must be unlocked from a user gesture.
+export function createSound(){
+ let ctx=null,master=null,noiseBuf=null,on=true,bed=null,score=null,scoreBus=null;
+ function unlock(){
+  if(ctx){ctx.resume?.();return}
+  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+  ctx=new AC();master=ctx.createGain();master.gain.value=on?.55:0;
+  const comp=ctx.createDynamicsCompressor();master.connect(comp);comp.connect(ctx.destination);
+  noiseBuf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  // Quiet harbour bed: filtered noise + two soft detuned tones.
+  const n=ctx.createBufferSource();n.buffer=noiseBuf;n.loop=true;const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=380;const ng=ctx.createGain();ng.gain.value=.05;n.connect(lp);lp.connect(ng);ng.connect(master);n.start();
+  const pad=ctx.createGain();pad.gain.value=.018;pad.connect(master);for(const f of[110,164.8]){const o=ctx.createOscillator();o.type='sine';o.frequency.value=f;o.detune.value=Math.random()*8-4;o.connect(pad);o.start()}
+  bed={lp,ng};
+  scoreBus=ctx.createGain();scoreBus.gain.value=1;scoreBus.connect(master);if(score)try{score.init(ctx,scoreBus)}catch{}
+ }
+ const now=()=>ctx.currentTime;
+ function tone(freq,dur=.6,{type='sine',gain=.18,attack=.01,glide=0,delay=0}={}){
+  if(!ctx)return;const t=now()+delay,o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);if(glide)o.frequency.exponentialRampToValueAtTime(freq*glide,t+dur);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(gain,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(master);o.start(t);o.stop(t+dur+.05);
+ }
+ function whoosh(dur=1.2,{from=300,to=2400,gain=.22,q=1.2,delay=0}={}){
+  if(!ctx)return;const t=now()+delay,s=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();s.buffer=noiseBuf;f.type='bandpass';f.Q.value=q;
+  f.frequency.setValueAtTime(from,t);f.frequency.exponentialRampToValueAtTime(to,t+dur);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(gain,t+dur*.4);g.gain.linearRampToValueAtTime(0,t+dur);
+  s.connect(f);f.connect(g);g.connect(master);s.start(t);s.stop(t+dur+.05);
+ }
+ function sparkle(count=14,dur=1.6){for(let i=0;i<count;i++)tone(1800+Math.random()*2600,.18,{gain:.035,delay:Math.random()*dur,type:'triangle'})}
+ const play={
+  lock:()=>{tone(660,.5,{gain:.12});tone(990,.7,{gain:.1,delay:.09});tone(1320,.9,{gain:.07,delay:.18})},
+  ring:()=>tone(220,1.4,{gain:.14,glide:2,type:'triangle'}),
+  trace:()=>whoosh(1.6,{from:800,to:5000,gain:.07,q:4}),
+  tarp:()=>whoosh(2.6,{from:200,to:700,gain:.16,q:.7}),
+  tear:()=>{whoosh(1.4,{from:1500,to:300,gain:.2,q:.8});sparkle(18,1.2)},
+  swirl:()=>whoosh(3,{from:300,to:1600,gain:.12,q:2}),
+  land:()=>{sparkle(26,2);tone(196,1.4,{gain:.1,type:'triangle'})},
+  pour:()=>whoosh(2.2,{from:180,to:420,gain:.18,q:.6}),
+  explode:()=>tone(330,1,{gain:.1,glide:1.5,type:'triangle'}),
+  join:()=>{tone(130,.5,{gain:.28,type:'sine',glide:.6});whoosh(.4,{from:2000,to:200,gain:.12})},
+  column:()=>{tone(440,2.2,{gain:.07,attack:.6});tone(659,2.2,{gain:.05,attack:.8})},
+  node:()=>tone(1046+Math.random()*200,.35,{gain:.06,type:'triangle'}),
+  water:()=>{whoosh(3,{from:150,to:500,gain:.14,q:.5});if(bed){bed.lp.frequency.setTargetAtTime(900,now(),1.5);bed.ng.gain.setTargetAtTime(.09,now(),1.5)}},
+  engine:()=>{whoosh(3.2,{from:90,to:160,gain:.22,q:.9});tone(55,3,{gain:.1,type:'sawtooth',attack:.6})},
+  horn:()=>{tone(98,2.4,{gain:.2,type:'sawtooth',attack:.25});tone(147,2.4,{gain:.1,type:'sawtooth',attack:.3})},
+  gull:()=>{for(let i=0;i<3;i++)tone(1400+Math.random()*300,.22,{gain:.05,glide:.55,type:'triangle',delay:i*.28})},
+  splash:()=>{whoosh(1.1,{from:2400,to:500,gain:.26,q:.6});sparkle(10,.6)},
+  beep:()=>{for(let i=0;i<4;i++)tone(1250,.12,{gain:.06,type:'square',delay:i*.5})},
+  whirr:()=>{tone(220,1.8,{gain:.07,type:'sawtooth',glide:1.3,attack:.3});whoosh(1.8,{from:400,to:900,gain:.06,q:2})},
+  thunder:()=>{whoosh(3.4,{from:80,to:40,gain:.3,q:.4});tone(45,3,{gain:.15,attack:.05})},
+  chime:()=>{tone(1318,1.2,{gain:.07});tone(1760,1.4,{gain:.05,delay:.12})},
+  lift:()=>tone(150,1.6,{gain:.12,glide:1.6,type:'sawtooth',attack:.3}),
+  set:()=>tone(98,.6,{gain:.25,glide:.7}),
+  dissolve:()=>{sparkle(22,1.8);if(bed){bed.lp.frequency.setTargetAtTime(380,now(),2);bed.ng.gain.setTargetAtTime(.05,now(),2)}},
+  rise:()=>whoosh(3,{from:400,to:3000,gain:.1,q:3}),
+  converge:()=>whoosh(2,{from:3000,to:400,gain:.12,q:3}),
+  flash:()=>{tone(523,1.6,{gain:.12});tone(784,1.8,{gain:.1,delay:.05});tone(1046,2.2,{gain:.08,delay:.1})},
+  // trailer (CUEVA)
+  boom:()=>{tone(62,2.6,{gain:.42,glide:.45,attack:.005});tone(31,3,{gain:.25,attack:.01});whoosh(1.6,{from:900,to:60,gain:.22,q:.5})},
+  riser:()=>{whoosh(2.6,{from:200,to:6000,gain:.13,q:5});tone(220,2.6,{gain:.05,glide:4,type:'sawtooth',attack:2.2})},
+  pulse:()=>{tone(58,.28,{gain:.32,glide:.6,attack:.004});tone(52,.3,{gain:.22,glide:.6,attack:.004,delay:.22})},
+  glitch:()=>{for(let i=0;i<7;i++)tone(180+Math.random()*2400,.05,{gain:.07,type:'square',delay:i*.045});whoosh(.35,{from:5000,to:800,gain:.12,q:8})},
+  boot:()=>{[523,659,784,1046].forEach((f,i)=>tone(f,.16,{gain:.06,type:'square',delay:i*.09}));tone(1568,.5,{gain:.05,type:'triangle',delay:.4})},
+  logo:()=>{[130.8,196,261.6,329.6,392,523.3].forEach((f,i)=>tone(f,4.5,{gain:.09-i*.008,attack:.04+i*.03,type:i%2?'triangle':'sine'}));tone(65.4,4,{gain:.3,attack:.01});sparkle(30,2.5)},
+ };
+ /** A story soundtrack: score.init(ctx,out) once audio is unlocked; the story drives score.update() itself. */
+ function attachScore(s){if(score&&score!==s)try{score.stop?.()}catch{}score=s||null;if(score&&ctx&&scoreBus)try{score.init(ctx,scoreBus)}catch{}}
+ return{unlock,attachScore,play:name=>{if(on&&ctx&&play[name])try{play[name]()}catch{}},
+  get on(){return on},
+  set(v){on=v;if(master)master.gain.setTargetAtTime(v?.55:0,ctx.currentTime,.1);if(v)unlock()},
+  suspend:()=>ctx?.suspend?.(),resume:()=>ctx?.resume?.()};
+}
